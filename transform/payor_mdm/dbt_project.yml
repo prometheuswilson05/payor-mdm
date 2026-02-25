@@ -1,0 +1,26 @@
+name: 'payor_mdm'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  payor_mdm:
+    staging:
+      +schema: STAGING
+      +materialized: view
+    match:
+      +schema: MATCH
+      +materialized: table
+    master:
+      +schema: MASTER
+      +materialized: table

@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: stg_crm_payors
+    description: "Cleaned CRM payor records — source_trust_rank=1 (most trusted)"
+    columns:
+      - name: source_record_id
+        tests: [not_null, unique]
+      - name: source_system
+        tests: [not_null]
+      - name: payor_name
+        tests: [not_null]
+      - name: source_trust_rank
+        tests: [not_null]
+
+  - name: stg_claims_payors
+    description: "Cleaned claims payor records — source_trust_rank=3, single-line address parsed"
+    columns:
+      - name: source_record_id
+        tests: [not_null, unique]
+      - name: source_system
+        tests: [not_null]
+      - name: source_trust_rank
+        tests: [not_null]
+
+  - name: stg_credentialing_payors
+    description: "Cleaned credentialing payor records — source_trust_rank=2, column names remapped"
+    columns:
+      - name: source_record_id
+        tests: [not_null, unique]
+      - name: source_system
+        tests: [not_null]
+      - name: source_trust_rank
+        tests: [not_null]
+
+  - name: stg_reference_payors
+    description: "Cleaned CMS reference payor records — source_trust_rank=4, authoritative for CMS fields"
+    columns:
+      - name: source_record_id
+        tests: [not_null, unique]
+      - name: source_system
+        tests: [not_null]
+      - name: source_trust_rank
+        tests: [not_null]
+
+  - name: stg_payors_unioned
+    description: "Union of all 4 staging models with blocking keys for matching"
+    columns:
+      - name: source_record_id
+        description: "Unique per-source identifier: {source_system}:{source_id}"
+        tests: [not_null, unique]
+      - name: source_system
+        tests: [not_null]
+      - name: source_trust_rank
+        tests: [not_null]
+      - name: block_name_key
+        tests: [not_null]
+      - name: block_zip3_name4
+        tests: [not_null]

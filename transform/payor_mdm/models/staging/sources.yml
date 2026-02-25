@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: mdm_raw
+    database: MDM
+    schema: RAW
+    description: "Raw source system landing tables for payor MDM"
+    tables:
+      - name: src_crm_payors
+        description: "CRM source — most trusted, actively maintained (source_trust_rank=1)"
+      - name: src_claims_payors
+        description: "Claims source — high volume, often stale, single-line address (source_trust_rank=3)"
+      - name: src_credentialing_payors
+        description: "Provider credentialing source — verified during enrollment (source_trust_rank=2)"
+      - name: src_reference_payors
+        description: "CMS public reference data — authoritative for CMS fields (source_trust_rank=4)"

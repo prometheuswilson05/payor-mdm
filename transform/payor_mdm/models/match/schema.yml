@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: int_blocking_pairs
+    description: "Candidate pairs sharing at least one blocking key (tax_id, name+state, zip+name)"
+    columns:
+      - name: source_record_id_a
+        tests: [not_null]
+      - name: source_record_id_b
+        tests: [not_null]
+
+  - name: int_match_scored
+    description: "Scored candidate pairs: deterministic rules + SQL-based fuzzy scoring"
+    columns:
+      - name: source_record_id_a
+        tests: [not_null]
+      - name: source_record_id_b
+        tests: [not_null]
+      - name: overall_score
+        tests: [not_null]
+      - name: match_rule
+        tests: [not_null]
+
+  - name: match_candidates
+    description: "Thresholded match pairs with auto/steward decisions. Grain: one row per candidate pair."
+    columns:
+      - name: candidate_id
+        tests: [not_null, unique]
+      - name: source_record_id_a
+        tests: [not_null]
+      - name: source_record_id_b
+        tests: [not_null]
+      - name: overall_score
+        tests: [not_null]
+      - name: auto_decision
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['auto_match', 'review', 'auto_no_match']
+      - name: final_decision
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['match', 'no_match']
+
+  - name: match_groups
+    description: "Connected components — each source record assigned to a match_group_id (future master_payor_id)"
+    columns:
+      - name: match_group_id
+        tests: [not_null]
+      - name: source_record_id
+        tests: [not_null, unique]
