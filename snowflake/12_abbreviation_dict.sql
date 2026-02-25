@@ -36,13 +36,13 @@ FROM (
     FROM VALUES ('ADDR_JAC'), ('ADDR_CMP'), ('ADDR_ZIP'), ('ADDR_NRM')
     UNION ALL
     SELECT 'phone', column1
-    FROM VALUES ('PHONE_L7'), ('PHONE_E164'), ('PHONE_AC')
+    FROM VALUES ('PHONE_LAST7'), ('PHONE_E164'), ('PHONE_AREACODE')
     UNION ALL
     SELECT 'tax_id', column1
-    FROM VALUES ('TIN_EXACT'), ('TIN_TRANS'), ('TIN_PFX')
+    FROM VALUES ('TAXID_EXACT'), ('TAXID_TRANSPOSE'), ('TAXID_PREFIX')
     UNION ALL
     SELECT 'cms_plan_id', column1
-    FROM VALUES ('CMS_EXACT'), ('CMS_PFX')
+    FROM VALUES ('CMS_EXACT'), ('CMS_PREFIX')
 ) f;
 
 -- Abbreviation lookup table (for reference/UI — UDF has its own copy)
