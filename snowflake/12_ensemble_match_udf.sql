@@ -1,9 +1,9 @@
 -- ===========================================================================
 -- Ensemble Match Score UDF — MDM.MATCH.ENSEMBLE_MATCH_SCORE
 -- ---------------------------------------------------------------------------
--- Data-characteristic router: inspects each field pair, selects 2-3
--- appropriate strategies, runs them, returns rich result with per-field
--- scores, winning strategy, routing reason, and weighted composite.
+-- Data-characteristic router (Option C): inspects each field pair, selects
+-- 2-3 appropriate strategies, returns flat result with per-field winning
+-- score/strategy and weighted composite.
 -- ===========================================================================
 
 USE DATABASE MDM;
@@ -32,7 +32,7 @@ import re
 
 # ── Abbreviation dictionary ──────────────────────────────────────────────
 
-PAYOR_ABBREVIATIONS = {
+ABBREVS = {
     "BCBS": "BLUE CROSS BLUE SHIELD", "BC": "BLUE CROSS", "BS": "BLUE SHIELD",
     "UHC": "UNITEDHEALTHCARE", "UHG": "UNITEDHEALTH GROUP",
     "HCSC": "HEALTH CARE SERVICE CORPORATION", "KP": "KAISER PERMANENTE",
@@ -43,9 +43,9 @@ PAYOR_ABBREVIATIONS = {
     "FEHB": "FEDERAL EMPLOYEES HEALTH BENEFITS", "CCHP": "CHINESE COMMUNITY HEALTH PLAN",
 }
 
-ADDR_STOPWORDS = {'ST','STREET','AVE','AVENUE','BLVD','BOULEVARD','RD','ROAD',
-                  'DR','DRIVE','LN','LANE','CT','COURT','STE','SUITE','APT',
-                  'UNIT','FL','FLOOR','#'}
+ADDR_STOPS = {'ST','STREET','AVE','AVENUE','BLVD','BOULEVARD','RD','ROAD',
+              'DR','DRIVE','LN','LANE','CT','COURT','STE','SUITE','APT',
+              'UNIT','FL','FLOOR','#'}
 
 STREET_NORMS = {"STREET":"ST","AVENUE":"AVE","BOULEVARD":"BLVD","ROAD":"RD",
                 "DRIVE":"DR","LANE":"LN","COURT":"CT","PLACE":"PL","CIRCLE":"CIR",
@@ -55,261 +55,192 @@ STREET_NORMS = {"STREET":"ST","AVENUE":"AVE","BOULEVARD":"BLVD","ROAD":"RD",
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
-def _clean(s):
+def _up(s):
     return s.upper().strip() if s else None
 
 def _digits(s):
-    return re.sub(r'[^0-9]', '', s) if s else None
+    return re.sub(r'[^0-9]', '', s) if s else ''
 
 def _ngrams(s, n=3):
-    s = s.upper()
     return [s[i:i+n] for i in range(len(s)-n+1)] if len(s) >= n else [s]
 
 # ── Name strategies ──────────────────────────────────────────────────────
 
 def _name_jw(a, b):
-    return jellyfish.jaro_winkler_similarity(a, b)
+    return round(jellyfish.jaro_winkler_similarity(a, b), 4)
 
 def _name_tsr(a, b):
     sa = ' '.join(sorted(a.split()))
     sb = ' '.join(sorted(b.split()))
-    return SequenceMatcher(None, sa, sb).ratio()
+    return round(SequenceMatcher(None, sa, sb).ratio(), 4)
 
 def _name_pho(a, b):
-    ma = doublemetaphone(a)
-    mb = doublemetaphone(b)
+    ma, mb = doublemetaphone(a), doublemetaphone(b)
     if (ma[0] and mb[0] and ma[0] == mb[0]) or \
        (ma[0] and mb[1] and ma[0] == mb[1]) or \
        (ma[1] and mb[0] and ma[1] == mb[0]):
         return 1.0
     return 0.0
 
-def _expand_abbr(name):
-    return ' '.join(PAYOR_ABBREVIATIONS.get(t, t) for t in name.split())
-
 def _name_abr(a, b):
-    return jellyfish.jaro_winkler_similarity(_expand_abbr(a), _expand_abbr(b))
+    def expand(n):
+        return ' '.join(ABBREVS.get(t, t) for t in n.split())
+    return round(jellyfish.jaro_winkler_similarity(expand(a), expand(b)), 4)
 
 def _name_ngr(a, b):
-    ga = Counter(_ngrams(a))
-    gb = Counter(_ngrams(b))
+    ga, gb = Counter(_ngrams(a)), Counter(_ngrams(b))
     common = set(ga) & set(gb)
-    dot = sum(ga[g] * gb[g] for g in common)
+    dot = sum(ga[g]*gb[g] for g in common)
     ma = math.sqrt(sum(v*v for v in ga.values()))
     mb = math.sqrt(sum(v*v for v in gb.values()))
-    return dot / (ma * mb) if ma and mb else 0.0
-
-NAME_FNS = {
-    'NAME_JW': _name_jw, 'NAME_TSR': _name_tsr, 'NAME_PHO': _name_pho,
-    'NAME_ABR': _name_abr, 'NAME_NGR': _name_ngr,
-}
+    return round(dot/(ma*mb), 4) if ma and mb else 0.0
 
 # ── Address strategies ───────────────────────────────────────────────────
 
 def _addr_jac(a, b):
-    ta = set(t.rstrip('.,') for t in a.split()) - ADDR_STOPWORDS
-    tb = set(t.rstrip('.,') for t in b.split()) - ADDR_STOPWORDS
-    union = ta | tb
-    return len(ta & tb) / len(union) if union else 0.0
-
-def _parse_addr(addr):
-    tokens = addr.split()
-    r = {}
-    if tokens and tokens[0].replace('-','').isdigit():
-        r['num'] = tokens[0]
-        tokens = tokens[1:]
-    r['name'] = ' '.join(t for t in tokens[:3] if t not in ADDR_STOPWORDS)
-    return r
+    ta = set(t.rstrip('.,') for t in a.split()) - ADDR_STOPS
+    tb = set(t.rstrip('.,') for t in b.split()) - ADDR_STOPS
+    u = ta | tb
+    return round(len(ta & tb)/len(u), 4) if u else 0.0
 
 def _addr_cmp(a, b):
-    ca, cb = _parse_addr(a), _parse_addr(b)
+    def parse(addr):
+        tok = addr.split()
+        r = {}
+        if tok and tok[0].replace('-','').isdigit():
+            r['num'] = tok[0]; tok = tok[1:]
+        r['name'] = ' '.join(t for t in tok[:3] if t not in ADDR_STOPS)
+        return r
+    ca, cb = parse(a), parse(b)
     tw, s = 0.0, 0.0
-    for comp, w in [('num', 0.30), ('name', 0.30)]:
-        va, vb = ca.get(comp, ''), cb.get(comp, '')
+    for c, w in [('num',0.3),('name',0.3)]:
+        va, vb = ca.get(c,''), cb.get(c,'')
         if va and vb:
             tw += w
             s += w * (1.0 if va == vb else jellyfish.jaro_winkler_similarity(va, vb))
-    return s / tw if tw > 0 else 0.0
-
-def _addr_zip(a, b, za, zb):
-    if not za or not zb:
-        return 0.0
-    z = 1.0 if za == zb else (0.5 if za[:3] == zb[:3] else 0.0)
-    j = _addr_jac(a, b) if a and b else 0.0
-    return z * 0.5 + j * 0.5
+    return round(s/tw, 4) if tw > 0 else 0.0
 
 def _addr_nrm(a, b):
     def norm(addr):
         return ' '.join(STREET_NORMS.get(t, t) for t in addr.split())
     na, nb = norm(a), norm(b)
-    return 1.0 if na == nb else jellyfish.jaro_winkler_similarity(na, nb)
+    return 1.0 if na == nb else round(jellyfish.jaro_winkler_similarity(na, nb), 4)
 
-# ── Routing logic ────────────────────────────────────────────────────────
+# ── Routing ──────────────────────────────────────────────────────────────
 
 def _route_name(a, b):
-    strats = ['NAME_JW']
-    reason = 'default'
+    """Returns (score, strategy_name, all_strategies_tried)"""
+    has_abbrev = any(t in ABBREVS for t in a.split()) or any(t in ABBREVS for t in b.split())
+    len_ratio = min(len(a), len(b)) / max(len(a), len(b)) if max(len(a), len(b)) > 0 else 1.0
 
-    has_abbrev = any(t in PAYOR_ABBREVIATIONS for t in a.split()) or \
-                 any(t in PAYOR_ABBREVIATIONS for t in b.split())
-    short = min(len(a), len(b))
-    len_diff = abs(len(a) - len(b))
+    results = {}
 
-    if has_abbrev or (len_diff > short * 0.5 and short <= 10):
-        strats.append('NAME_ABR')
-        reason = 'abbreviation_detected'
+    if has_abbrev:
+        results['NAME_ABR'] = _name_abr(a, b)
+        results['NAME_JW'] = _name_jw(a, b)
+        results['NAME_TSR'] = _name_tsr(a, b)
+    elif len_ratio < 0.6:
+        results['NAME_TSR'] = _name_tsr(a, b)
+        results['NAME_ABR'] = _name_abr(a, b)
+    elif max(len(a), len(b)) <= 20:
+        results['NAME_JW'] = _name_jw(a, b)
+        results['NAME_PHO'] = _name_pho(a, b)
+        results['NAME_NGR'] = _name_ngr(a, b)
+    else:
+        results['NAME_JW'] = _name_jw(a, b)
+        results['NAME_NGR'] = _name_ngr(a, b)
 
-    ta = set(a.split())
-    tb = set(b.split())
-    if len(ta) >= 2 and len(tb) >= 2:
-        overlap = len(ta & tb) / max(len(ta | tb), 1)
-        if overlap > 0.3:
-            strats.append('NAME_TSR')
-            if reason == 'default':
-                reason = 'token_overlap'
+    winner = max(results, key=results.get)
+    return results[winner], winner, list(results.keys())
 
-    if max(len(a), len(b)) <= 20:
-        strats.append('NAME_PHO')
-        if reason == 'default':
-            reason = 'short_names_phonetic'
+def _route_addr(a, b):
+    has_num = any(c.isdigit() for c in (a or '')[:10]) and any(c.isdigit() for c in (b or '')[:10])
+    results = {}
 
-    if min(len(a), len(b)) > 25:
-        strats.append('NAME_NGR')
-        if reason == 'default':
-            reason = 'long_names_ngram'
+    if has_num:
+        results['ADDR_CMP'] = _addr_cmp(a, b)
+        results['ADDR_NRM'] = _addr_nrm(a, b)
+    else:
+        results['ADDR_JAC'] = _addr_jac(a, b)
 
-    return strats[:3], reason
+    winner = max(results, key=results.get)
+    return results[winner], winner, list(results.keys())
 
-def _route_addr(a, b, za, zb):
-    strats = ['ADDR_JAC']
-    reason = 'default'
-
-    if any(c.isdigit() for c in (a or '')[:10]) and any(c.isdigit() for c in (b or '')[:10]):
-        strats.append('ADDR_CMP')
-        reason = 'structured_addresses'
-
-    if za and zb:
-        strats.append('ADDR_ZIP')
-        if reason == 'default':
-            reason = 'zips_available'
-
-    strats.append('ADDR_NRM')
-    return strats[:3], reason
-
-# ── Main ─────────────────────────────────────────────────────────────────
+# ── Main handler ─────────────────────────────────────────────────────────
 
 def ensemble_match_score(name_a, name_b, tax_a, tax_b, addr_a, addr_b,
                          phone_a, phone_b, cms_a, cms_b):
-    result = {}
-    weights = {}
+
+    result = {
+        'name_score': None, 'name_strategy': None,
+        'addr_score': None, 'addr_strategy': None,
+        'tax_score': None, 'phone_score': None, 'cms_score': None,
+        'composite': None, 'strategies_used': [],
+    }
+    field_scores = {}
+    strategies_used = []
 
     # ── Name ──
     if name_a and name_b:
-        na, nb = _clean(name_a), _clean(name_b)
-        strats, reason = _route_name(na, nb)
-        scores = {s: round(NAME_FNS[s](na, nb), 4) for s in strats}
-        winner = max(scores, key=scores.get)
-        result['name'] = {
-            'selected_strategies': strats,
-            'strategy_scores': scores,
-            'winning_strategy': winner,
-            'score': scores[winner],
-            'routing_reason': reason,
-        }
-        weights['name'] = 0.35
+        na, nb = _up(name_a), _up(name_b)
+        score, strat, _ = _route_name(na, nb)
+        result['name_score'] = score
+        result['name_strategy'] = strat
+        field_scores['name'] = score
+        strategies_used.append(strat)
 
     # ── Tax ID ──
     if tax_a and tax_b:
         da, db = _digits(tax_a), _digits(tax_b)
         if da and db:
-            scores = {'TIN_EXACT': 1.0 if da == db else 0.0}
-            reason = 'exact_match'
-            if da != db:
-                reason = 'exact_failed_trying_fuzzy'
+            exact = 1.0 if da == db else 0.0
+            if exact == 1.0:
+                result['tax_score'] = 1.0
+                strategies_used.append('TAXID_EXACT')
+            else:
+                # Also try transpose detection
+                trans = 0.0
                 if len(da) == len(db):
-                    diffs = sum(1 for x, y in zip(da, db) if x != y)
-                    scores['TIN_TRANS'] = 0.9 if diffs <= 1 else (0.7 if diffs == 2 else 0.0)
-                if len(da) >= 5 and len(db) >= 5 and da[:2] == db[:2]:
-                    matching = sum(1 for x, y in zip(da[2:], db[2:]) if x == y)
-                    scores['TIN_PFX'] = 0.6 if matching >= 5 else 0.0
-            winner = max(scores, key=scores.get)
-            result['tax_id'] = {
-                'selected_strategies': list(scores.keys()),
-                'strategy_scores': scores,
-                'winning_strategy': winner,
-                'score': scores[winner],
-                'routing_reason': reason,
-            }
-            weights['tax_id'] = 0.25
+                    diffs = sum(1 for x,y in zip(da,db) if x!=y)
+                    trans = 0.9 if diffs <= 1 else (0.7 if diffs == 2 else 0.0)
+                result['tax_score'] = max(exact, trans)
+                strategies_used.append('TAXID_TRANSPOSE' if trans > exact else 'TAXID_EXACT')
+            field_scores['tax_id'] = result['tax_score']
 
     # ── Address ──
     if addr_a and addr_b:
-        aa, ab_ = _clean(addr_a), _clean(addr_b)
-        za = _digits(addr_a.split()[-1]) if addr_a else None  # crude zip extraction
-        zb = _digits(addr_b.split()[-1]) if addr_b else None
-        # Use phone params as zip if they look like zips — but spec says addr includes zip in concat
-        strats, reason = _route_addr(aa, ab_, za, zb)
-        scores = {}
-        for s in strats:
-            if s == 'ADDR_JAC':
-                scores[s] = round(_addr_jac(aa, ab_), 4)
-            elif s == 'ADDR_CMP':
-                scores[s] = round(_addr_cmp(aa, ab_), 4)
-            elif s == 'ADDR_ZIP':
-                scores[s] = round(_addr_zip(aa, ab_, za, zb), 4)
-            elif s == 'ADDR_NRM':
-                scores[s] = round(_addr_nrm(aa, ab_), 4)
-        winner = max(scores, key=scores.get)
-        result['address'] = {
-            'selected_strategies': strats,
-            'strategy_scores': scores,
-            'winning_strategy': winner,
-            'score': scores[winner],
-            'routing_reason': reason,
-        }
-        weights['address'] = 0.20
+        aa, ab_ = _up(addr_a), _up(addr_b)
+        score, strat, _ = _route_addr(aa, ab_)
+        result['addr_score'] = score
+        result['addr_strategy'] = strat
+        field_scores['address'] = score
+        strategies_used.append(strat)
 
     # ── Phone ──
     if phone_a and phone_b:
         pa, pb = _digits(phone_a), _digits(phone_b)
         if pa and pb:
-            l7 = 1.0 if len(pa) >= 7 and len(pb) >= 7 and pa[-7:] == pb[-7:] else 0.0
             e164 = 1.0 if len(pa) >= 10 and len(pb) >= 10 and pa[-10:] == pb[-10:] else 0.0
-            ac = l7 if l7 == 1.0 else (0.5 if len(pa) >= 10 and len(pb) >= 10 and pa[-4:] == pb[-4:] else 0.0)
-            scores = {'PHONE_L7': l7, 'PHONE_E164': e164, 'PHONE_AC': round(ac, 4)}
-            winner = max(scores, key=scores.get)
-            result['phone'] = {
-                'selected_strategies': list(scores.keys()),
-                'strategy_scores': scores,
-                'winning_strategy': winner,
-                'score': scores[winner],
-                'routing_reason': 'default',
-            }
-            weights['phone'] = 0.10
+            l7 = 1.0 if len(pa) >= 7 and len(pb) >= 7 and pa[-7:] == pb[-7:] else 0.0
+            result['phone_score'] = max(e164, l7)
+            strategies_used.append('PHONE_E164' if e164 >= l7 else 'PHONE_LAST7')
+            field_scores['phone'] = result['phone_score']
 
-    # ── CMS Plan ID ──
+    # ── CMS ──
     if cms_a and cms_b:
-        ca, cb = _clean(cms_a), _clean(cms_b)
-        scores = {'CMS_EXACT': 1.0 if ca == cb else 0.0}
-        if ca != cb and len(ca) >= 5 and len(cb) >= 5:
-            scores['CMS_PFX'] = 0.85 if ca[:5] == cb[:5] else 0.0
-        winner = max(scores, key=scores.get)
-        result['cms_plan_id'] = {
-            'selected_strategies': list(scores.keys()),
-            'strategy_scores': scores,
-            'winning_strategy': winner,
-            'score': scores[winner],
-            'routing_reason': 'default',
-        }
-        weights['cms_plan_id'] = 0.10
+        ca, cb = _up(cms_a), _up(cms_b)
+        exact = 1.0 if ca == cb else 0.0
+        pfx = 0.85 if len(ca)>=5 and len(cb)>=5 and ca[:5]==cb[:5] else 0.0
+        result['cms_score'] = max(exact, pfx)
+        strategies_used.append('CMS_EXACT' if exact >= pfx else 'CMS_PREFIX')
+        field_scores['cms'] = result['cms_score']
 
-    # ── Composite ──
-    total_weight = sum(weights.values())
-    composite = sum(result[f]['score'] * weights[f] for f in weights) / total_weight if total_weight > 0 else 0.0
+    # ── Composite (weighted) ──
+    WEIGHTS = {'name': 0.35, 'tax_id': 0.25, 'address': 0.20, 'phone': 0.10, 'cms': 0.10}
+    total_w = sum(WEIGHTS[f] for f in field_scores)
+    if total_w > 0:
+        result['composite'] = round(sum(field_scores[f]*WEIGHTS[f] for f in field_scores) / total_w, 4)
 
-    return {
-        **result,
-        'composite': round(composite, 4),
-        'field_weights': {k: round(v, 2) for k, v in weights.items()},
-    }
+    result['strategies_used'] = strategies_used
+    return result
 $$;

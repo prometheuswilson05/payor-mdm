@@ -256,8 +256,24 @@ $$;
 -- TAX ID STRATEGY
 -- =========================================================================
 
+-- TAXID_EXACT: Exact digit match
+CREATE OR REPLACE FUNCTION MDM.MATCH.TAXID_EXACT(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+import re
+def score(a, b):
+    if not a or not b:
+        return None
+    da = re.sub(r'[^0-9]', '', a)
+    db = re.sub(r'[^0-9]', '', b)
+    return 1.0 if da and db and da == db else 0.0
+$$;
+
 -- TAXID_TRANSPOSE: Detect transposition/single-digit errors
-CREATE OR REPLACE FUNCTION MDM.MATCH.TAXID_TRANSPOSE_SCORE(a VARCHAR, b VARCHAR)
+CREATE OR REPLACE FUNCTION MDM.MATCH.TAXID_TRANSPOSE(a VARCHAR, b VARCHAR)
 RETURNS FLOAT
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
@@ -280,5 +296,104 @@ def score(a, b):
         return 0.9
     if diffs == 2:
         return 0.7
+    return 0.0
+$$;
+
+-- TAXID_PREFIX: First 2 digits match + partial remaining
+CREATE OR REPLACE FUNCTION MDM.MATCH.TAXID_PREFIX(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+import re
+def score(a, b):
+    if not a or not b:
+        return None
+    da = re.sub(r'[^0-9]', '', a)
+    db = re.sub(r'[^0-9]', '', b)
+    if not da or not db or len(da) < 5 or len(db) < 5:
+        return None
+    if da[:2] != db[:2]:
+        return 0.0
+    matching = sum(1 for x, y in zip(da[2:], db[2:]) if x == y)
+    return 0.6 if matching >= 5 else 0.3
+$$;
+
+-- =========================================================================
+-- PHONE STRATEGIES (additional)
+-- =========================================================================
+
+-- PHONE_LAST7: Last 7 digits match (local number)
+CREATE OR REPLACE FUNCTION MDM.MATCH.PHONE_LAST7(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+import re
+def score(a, b):
+    if not a or not b:
+        return None
+    da = re.sub(r'[^0-9]', '', a)
+    db = re.sub(r'[^0-9]', '', b)
+    if len(da) >= 7 and len(db) >= 7:
+        return 1.0 if da[-7:] == db[-7:] else 0.0
+    return 0.0
+$$;
+
+-- PHONE_AREACODE: Area code + last-4 partial match
+CREATE OR REPLACE FUNCTION MDM.MATCH.PHONE_AREACODE(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+import re
+def score(a, b):
+    if not a or not b:
+        return None
+    da = re.sub(r'[^0-9]', '', a)
+    db = re.sub(r'[^0-9]', '', b)
+    if len(da) >= 10 and len(db) >= 10:
+        ac_match = da[-10:-7] == db[-10:-7]
+        last4 = da[-4:] == db[-4:]
+        if ac_match and last4:
+            return 0.8
+        if ac_match:
+            return 0.3
+    return 0.0
+$$;
+
+-- =========================================================================
+-- CMS STRATEGIES
+-- =========================================================================
+
+-- CMS_EXACT: Exact CMS Plan ID match
+CREATE OR REPLACE FUNCTION MDM.MATCH.CMS_EXACT(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+def score(a, b):
+    if not a or not b:
+        return None
+    return 1.0 if a.strip().upper() == b.strip().upper() else 0.0
+$$;
+
+-- CMS_PREFIX: First 5 chars of CMS Plan ID match
+CREATE OR REPLACE FUNCTION MDM.MATCH.CMS_PREFIX(a VARCHAR, b VARCHAR)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'score'
+AS $$
+def score(a, b):
+    if not a or not b:
+        return None
+    ca, cb = a.strip().upper(), b.strip().upper()
+    if len(ca) >= 5 and len(cb) >= 5 and ca[:5] == cb[:5]:
+        return 0.85
     return 0.0
 $$;
