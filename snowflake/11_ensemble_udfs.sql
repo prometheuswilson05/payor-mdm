@@ -595,7 +595,7 @@ def ensemble_match_score(name_a, name_b, tax_a, tax_b, addr_a, addr_b,
             exact = 1.0 if da == db else 0.0
             if exact == 1.0:
                 result['tax_score'] = 1.0
-                strategies_used.append('TAXID_EXACT')
+                strategies_used.append('TIN_EXACT')
             else:
                 # Also try transpose detection
                 trans = 0.0
@@ -603,8 +603,8 @@ def ensemble_match_score(name_a, name_b, tax_a, tax_b, addr_a, addr_b,
                     diffs = sum(1 for x,y in zip(da,db) if x!=y)
                     trans = 0.9 if diffs <= 1 else (0.7 if diffs == 2 else 0.0)
                 result['tax_score'] = max(exact, trans)
-                strategies_used.append('TAXID_TRANSPOSE' if trans > exact else 'TAXID_EXACT')
-            field_scores['tax_id'] = result['tax_score']
+                strategies_used.append('TIN_TRANS' if trans > exact else 'TIN_EXACT')
+            field_scores['tax_id'] = result['tax_score']  # runs on both paths
 
     # ── Address ──
     if addr_a and addr_b:
@@ -622,7 +622,7 @@ def ensemble_match_score(name_a, name_b, tax_a, tax_b, addr_a, addr_b,
             e164 = 1.0 if len(pa) >= 10 and len(pb) >= 10 and pa[-10:] == pb[-10:] else 0.0
             l7 = 1.0 if len(pa) >= 7 and len(pb) >= 7 and pa[-7:] == pb[-7:] else 0.0
             result['phone_score'] = max(e164, l7)
-            strategies_used.append('PHONE_E164' if e164 >= l7 else 'PHONE_LAST7')
+            strategies_used.append('PHONE_E164' if e164 >= l7 else 'PHONE_L7')
             field_scores['phone'] = result['phone_score']
 
     # ── CMS ──
@@ -631,7 +631,7 @@ def ensemble_match_score(name_a, name_b, tax_a, tax_b, addr_a, addr_b,
         exact = 1.0 if ca == cb else 0.0
         pfx = 0.85 if len(ca)>=5 and len(cb)>=5 and ca[:5]==cb[:5] else 0.0
         result['cms_score'] = max(exact, pfx)
-        strategies_used.append('CMS_EXACT' if exact >= pfx else 'CMS_PREFIX')
+        strategies_used.append('CMS_EXACT' if exact >= pfx else 'CMS_PFX')
         field_scores['cms'] = result['cms_score']
 
     # ── Composite (weighted) ──
