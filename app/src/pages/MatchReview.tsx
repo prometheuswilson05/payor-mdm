@@ -3,12 +3,12 @@ import { Check, X, SkipForward, AlertCircle, Loader2 } from 'lucide-react'
 import { querySnowflake, writeSnowflake } from '../api'
 
 const COMPARE_FIELDS = [
-  'PAYOR_NAME', 'TAX_ID', 'NPI', 'ADDRESS_LINE1', 'CITY',
+  'PAYOR_NAME', 'TAX_ID', 'NPI', 'ADDRESS_LINE_1', 'CITY',
   'STATE_CODE', 'ZIP_CODE', 'PHONE', 'PAYOR_TYPE', 'STATUS',
 ]
 
 const SCORE_FIELDS = [
-  'NAME_SCORE', 'TAX_ID_SCORE', 'NPI_SCORE', 'ADDRESS_SCORE', 'PHONE_SCORE', 'COMPOSITE_SCORE',
+  'SCORE_NAME', 'SCORE_TAX_ID', 'SCORE_ADDRESS', 'SCORE_PHONE', 'OVERALL_SCORE',
 ]
 
 function fieldMatchClass(valA: string | null, valB: string | null): string {
@@ -39,7 +39,7 @@ export default function MatchReview() {
     setError(null)
     try {
       const rows = await querySnowflake(
-        "SELECT * FROM MDM.MATCH.MATCH_CANDIDATES WHERE FINAL_DECISION = 'review' ORDER BY COMPOSITE_SCORE DESC"
+        "SELECT * FROM MDM.MATCH.MATCH_CANDIDATES WHERE AUTO_DECISION = 'review' AND STEWARD_DECISION IS NULL ORDER BY OVERALL_SCORE DESC"
       )
       setCandidates(rows)
       setCurrentIndex(0)
@@ -57,8 +57,8 @@ export default function MatchReview() {
     setLoadingDetail(true)
     try {
       const [a, b] = await Promise.all([
-        querySnowflake(`SELECT * FROM MDM.STAGING.STG_PAYORS_UNIONED WHERE RECORD_ID = '${candidate.SOURCE_A_ID}'`),
-        querySnowflake(`SELECT * FROM MDM.STAGING.STG_PAYORS_UNIONED WHERE RECORD_ID = '${candidate.SOURCE_B_ID}'`),
+        querySnowflake(`SELECT * FROM MDM.STAGING.STG_PAYORS_UNIONED WHERE SOURCE_RECORD_ID = '${candidate.SOURCE_RECORD_ID_A}'`),
+        querySnowflake(`SELECT * FROM MDM.STAGING.STG_PAYORS_UNIONED WHERE SOURCE_RECORD_ID = '${candidate.SOURCE_RECORD_ID_B}'`),
       ])
       setSourceA(a[0] ?? null)
       setSourceB(b[0] ?? null)
@@ -70,17 +70,19 @@ export default function MatchReview() {
     }
   }
 
-  const handleDecision = useCallback(async (decision: 'match_confirmed' | 'match_rejected') => {
+  const handleDecision = useCallback(async (stewardDecision: 'confirmed_match' | 'confirmed_no_match') => {
     if (saving || candidates.length === 0) return
     const candidate = candidates[currentIndex]
     if (!candidate) return
+
+    const finalDecision = stewardDecision === 'confirmed_match' ? 'match' : 'no_match'
 
     setSaving(true)
     try {
       const escapedNotes = notes.replace(/'/g, "''")
       await writeSnowflake([
-        `UPDATE MDM.MATCH.MATCH_CANDIDATES SET STEWARD_DECISION = '${decision}', FINAL_DECISION = '${decision}', REVIEWED_BY = 'steward', REVIEWED_AT = CURRENT_TIMESTAMP() WHERE CANDIDATE_ID = '${candidate.CANDIDATE_ID}'`,
-        `INSERT INTO MDM.AUDIT.MDM_CHANGE_LOG (ENTITY_TYPE, ENTITY_ID, ACTION, CHANGED_BY, CHANGE_DETAILS) VALUES ('match_candidate', '${candidate.CANDIDATE_ID}', '${decision}', 'steward', '${escapedNotes}')`,
+        `UPDATE MDM.MATCH.MATCH_CANDIDATES SET STEWARD_DECISION = '${stewardDecision}', FINAL_DECISION = '${finalDecision}', STEWARD_USER = 'steward', STEWARD_TIMESTAMP = CURRENT_TIMESTAMP(), STEWARD_NOTES = '${escapedNotes}' WHERE CANDIDATE_ID = '${candidate.CANDIDATE_ID}'`,
+        `INSERT INTO MDM.AUDIT.MDM_CHANGE_LOG (CHANGE_ID, ENTITY_TYPE, ENTITY_ID, ACTION, CHANGED_BY, REASON) VALUES (UUID_STRING(), 'match_candidate', '${candidate.CANDIDATE_ID}', '${stewardDecision}', 'steward', '${escapedNotes}')`,
       ])
 
       const updated = candidates.filter((_, i) => i !== currentIndex)
@@ -110,8 +112,8 @@ export default function MatchReview() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
-      if (e.key === 'y' || e.key === 'Y') handleDecision('match_confirmed')
-      else if (e.key === 'n' || e.key === 'N') handleDecision('match_rejected')
+      if (e.key === 'y' || e.key === 'Y') handleDecision('confirmed_match')
+      else if (e.key === 'n' || e.key === 'N') handleDecision('confirmed_no_match')
       else if (e.key === 's' || e.key === 'S') handleSkip()
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -170,13 +172,14 @@ export default function MatchReview() {
           const val = candidate[field]
           if (val == null) return null
           const pct = (parseFloat(val) * 100).toFixed(0)
+          const label = field.replace('SCORE_', '').replace('OVERALL_', 'OVERALL ')
           const colorClass =
             parseFloat(val) >= 0.8 ? 'bg-green-900/50 text-green-400' :
             parseFloat(val) >= 0.5 ? 'bg-yellow-900/50 text-yellow-400' :
             'bg-red-900/50 text-red-400'
           return (
             <span key={field} className={`px-3 py-1 rounded-full text-xs font-medium ${colorClass}`}>
-              {field.replace('_SCORE', '')}: {pct}%
+              {label}: {pct}%
             </span>
           )
         })}
@@ -236,7 +239,7 @@ export default function MatchReview() {
       {/* Actions */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => handleDecision('match_confirmed')}
+          onClick={() => handleDecision('confirmed_match')}
           disabled={saving}
           className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
         >
@@ -245,7 +248,7 @@ export default function MatchReview() {
           <kbd className="ml-2 px-1.5 py-0.5 bg-green-800 rounded text-xs">Y</kbd>
         </button>
         <button
-          onClick={() => handleDecision('match_rejected')}
+          onClick={() => handleDecision('confirmed_no_match')}
           disabled={saving}
           className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
         >

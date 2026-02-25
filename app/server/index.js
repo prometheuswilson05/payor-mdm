@@ -71,7 +71,8 @@ app.post('/api/write', async (req, res) => {
 });
 
 app.post('/api/dbt-run', (req, res) => {
-  const cmd = 'cd /Users/prometheuswilson/Projects/payor-mdm/transform/payor_mdm && dbt run --select golden_payors+';
+  const repoRoot = path.resolve(__dirname, '..', '..');
+  const cmd = `cd ${repoRoot}/transform/payor_mdm && dbt run --select golden_payors+`;
   exec(cmd, { maxBuffer: 1024 * 1024 * 10 }, (err, stdout, stderr) => {
     if (err) {
       console.error('dbt run error:', stderr);

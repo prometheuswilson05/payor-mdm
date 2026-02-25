@@ -3,8 +3,8 @@ import { ChevronDown, ChevronRight, Plus, Loader2, AlertCircle } from 'lucide-re
 import { querySnowflake, writeSnowflake } from '../api'
 
 interface HierarchyRow {
-  PARENT_PAYOR_ID: string
-  CHILD_PAYOR_ID: string
+  PARENT_MASTER_ID: string
+  CHILD_MASTER_ID: string
   RELATIONSHIP_TYPE: string
   STEWARD_CONFIRMED: boolean
   PARENT_NAME: string
@@ -21,7 +21,7 @@ interface TreeNode {
 
 interface GoldenOption {
   MASTER_PAYOR_ID: string
-  GOLDEN_PAYOR_NAME: string
+  PAYOR_NAME: string
 }
 
 export default function HierarchyManager() {
@@ -46,17 +46,17 @@ export default function HierarchyManager() {
     try {
       const [hier, unass, golden] = await Promise.all([
         querySnowflake(`
-          SELECT h.*, p.GOLDEN_PAYOR_NAME as PARENT_NAME, c.GOLDEN_PAYOR_NAME as CHILD_NAME
+          SELECT h.*, p.PAYOR_NAME as PARENT_NAME, c.PAYOR_NAME as CHILD_NAME
           FROM MDM.MASTER.PAYOR_HIERARCHY h
-          JOIN MDM.MASTER.GOLDEN_PAYORS p ON h.PARENT_PAYOR_ID = p.MASTER_PAYOR_ID
-          JOIN MDM.MASTER.GOLDEN_PAYORS c ON h.CHILD_PAYOR_ID = c.MASTER_PAYOR_ID
+          JOIN MDM.MASTER.GOLDEN_PAYORS p ON h.PARENT_MASTER_ID = p.MASTER_PAYOR_ID
+          JOIN MDM.MASTER.GOLDEN_PAYORS c ON h.CHILD_MASTER_ID = c.MASTER_PAYOR_ID
         `),
         querySnowflake(`
           SELECT * FROM MDM.MASTER.GOLDEN_PAYORS
-          WHERE MASTER_PAYOR_ID NOT IN (SELECT CHILD_PAYOR_ID FROM MDM.MASTER.PAYOR_HIERARCHY)
-          AND MASTER_PAYOR_ID NOT IN (SELECT PARENT_PAYOR_ID FROM MDM.MASTER.PAYOR_HIERARCHY)
+          WHERE MASTER_PAYOR_ID NOT IN (SELECT CHILD_MASTER_ID FROM MDM.MASTER.PAYOR_HIERARCHY)
+          AND MASTER_PAYOR_ID NOT IN (SELECT PARENT_MASTER_ID FROM MDM.MASTER.PAYOR_HIERARCHY)
         `),
-        querySnowflake(`SELECT MASTER_PAYOR_ID, GOLDEN_PAYOR_NAME FROM MDM.MASTER.GOLDEN_PAYORS ORDER BY GOLDEN_PAYOR_NAME`),
+        querySnowflake(`SELECT MASTER_PAYOR_ID, PAYOR_NAME FROM MDM.MASTER.GOLDEN_PAYORS ORDER BY PAYOR_NAME`),
       ])
       setRows(hier)
       setUnassigned(unass)
@@ -69,17 +69,17 @@ export default function HierarchyManager() {
   }
 
   function buildTree(rows: HierarchyRow[]): TreeNode[] {
-    const childIds = new Set(rows.map((r) => r.CHILD_PAYOR_ID))
+    const childIds = new Set(rows.map((r) => r.CHILD_MASTER_ID))
     const rootIds = new Set<string>()
     rows.forEach((r) => {
-      if (!childIds.has(r.PARENT_PAYOR_ID)) rootIds.add(r.PARENT_PAYOR_ID)
+      if (!childIds.has(r.PARENT_MASTER_ID)) rootIds.add(r.PARENT_MASTER_ID)
     })
 
     const childrenMap = new Map<string, HierarchyRow[]>()
     rows.forEach((r) => {
-      const existing = childrenMap.get(r.PARENT_PAYOR_ID) || []
+      const existing = childrenMap.get(r.PARENT_MASTER_ID) || []
       existing.push(r)
-      childrenMap.set(r.PARENT_PAYOR_ID, existing)
+      childrenMap.set(r.PARENT_MASTER_ID, existing)
     })
 
     function buildNode(id: string, name: string, relType?: string, confirmed?: boolean): TreeNode {
@@ -90,15 +90,15 @@ export default function HierarchyManager() {
         relationshipType: relType,
         confirmed,
         children: kids.map((k) =>
-          buildNode(k.CHILD_PAYOR_ID, k.CHILD_NAME, k.RELATIONSHIP_TYPE, k.STEWARD_CONFIRMED)
+          buildNode(k.CHILD_MASTER_ID, k.CHILD_NAME, k.RELATIONSHIP_TYPE, k.STEWARD_CONFIRMED)
         ),
       }
     }
 
     const nameMap = new Map<string, string>()
     rows.forEach((r) => {
-      nameMap.set(r.PARENT_PAYOR_ID, r.PARENT_NAME)
-      nameMap.set(r.CHILD_PAYOR_ID, r.CHILD_NAME)
+      nameMap.set(r.PARENT_MASTER_ID, r.PARENT_NAME)
+      nameMap.set(r.CHILD_MASTER_ID, r.CHILD_NAME)
     })
 
     return Array.from(rootIds).map((id) => buildNode(id, nameMap.get(id) || id))
@@ -109,7 +109,7 @@ export default function HierarchyManager() {
     setSaving(true)
     try {
       await writeSnowflake([
-        `INSERT INTO MDM.MASTER.PAYOR_HIERARCHY (PARENT_PAYOR_ID, CHILD_PAYOR_ID, RELATIONSHIP_TYPE, STEWARD_CONFIRMED, CONFIRMED_BY, CONFIRMED_AT) VALUES ('${formParent}', '${formChild}', '${formType}', TRUE, 'steward', CURRENT_TIMESTAMP())`,
+        `INSERT INTO MDM.MASTER.PAYOR_HIERARCHY (HIERARCHY_ID, PARENT_MASTER_ID, CHILD_MASTER_ID, RELATIONSHIP_TYPE, STEWARD_CONFIRMED) VALUES (UUID_STRING(), '${formParent}', '${formChild}', '${formType}', TRUE)`,
       ])
       setShowForm(false)
       setFormParent('')
@@ -170,7 +170,7 @@ export default function HierarchyManager() {
                 <option value="">Select parent...</option>
                 {allGolden.map((g) => (
                   <option key={g.MASTER_PAYOR_ID} value={g.MASTER_PAYOR_ID}>
-                    {g.GOLDEN_PAYOR_NAME}
+                    {g.PAYOR_NAME}
                   </option>
                 ))}
               </select>
@@ -185,7 +185,7 @@ export default function HierarchyManager() {
                 <option value="">Select child...</option>
                 {allGolden.map((g) => (
                   <option key={g.MASTER_PAYOR_ID} value={g.MASTER_PAYOR_ID}>
-                    {g.GOLDEN_PAYOR_NAME}
+                    {g.PAYOR_NAME}
                   </option>
                 ))}
               </select>
@@ -247,7 +247,7 @@ export default function HierarchyManager() {
           <div className="grid grid-cols-3 gap-2">
             {unassigned.map((r: any) => (
               <div key={r.MASTER_PAYOR_ID} className="text-sm bg-gray-950 rounded px-3 py-2 text-gray-300">
-                {r.GOLDEN_PAYOR_NAME}
+                {r.PAYOR_NAME}
               </div>
             ))}
           </div>
@@ -287,7 +287,7 @@ function TreeNodeView({ node, depth }: { node: TreeNode; depth: number }) {
         )}
       </div>
       {expanded && hasChildren && (
-        <div className={depth === 0 ? 'border-l border-gray-800 ml-5' : 'border-l border-gray-800 ml-5'}>
+        <div className="border-l border-gray-800 ml-5">
           {node.children.map((child) => (
             <TreeNodeView key={child.id} node={child} depth={depth + 1} />
           ))}
