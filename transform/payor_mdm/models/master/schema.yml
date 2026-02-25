@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: int_survivorship
+    description: "Field-level survivorship applied per match group — feeds golden_payors"
+    columns:
+      - name: match_group_id
+        tests: [not_null, unique]
+      - name: payor_name
+        tests: [not_null]
+
+  - name: golden_payors
+    description: "One golden record per real-world payor entity (match group)"
+    columns:
+      - name: master_payor_id
+        description: "Primary key — equals match_group_id from match_groups"
+        tests: [not_null, unique]
+      - name: payor_name
+        tests: [not_null]
+      - name: completeness_score
+        tests: [not_null]
+      - name: source_count
+        tests: [not_null]
+
+  - name: xref
+    description: "Cross-reference: every source record mapped to its master_payor_id"
+    columns:
+      - name: source_record_id
+        tests: [not_null, unique]
+      - name: master_payor_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('golden_payors')
+                field: master_payor_id
+
+  - name: int_hierarchy_inferred
+    description: "Inferred parent-child pairs from name substring + parent_ref signals"
+    columns:
+      - name: parent_master_id
+        tests: [not_null]
+      - name: child_master_id
+        tests: [not_null]
+
+  - name: payor_hierarchy
+    description: "Payor hierarchy rows — steward_confirmed=FALSE until approved via UI"
+    columns:
+      - name: hierarchy_id
+        tests: [not_null]
+      - name: parent_master_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('golden_payors')
+                field: master_payor_id
+      - name: child_master_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('golden_payors')
+                field: master_payor_id
+      - name: steward_confirmed
+        tests: [not_null]
