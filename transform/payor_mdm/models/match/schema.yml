@@ -44,6 +44,14 @@ models:
           - accepted_values:
               arguments:
                 values: ['match', 'no_match']
+      - name: winning_name_strategy
+        description: "Ensemble strategy that scored highest for name similarity (e.g. NAME_JW, NAME_NGR, NAME_PHO)"
+      - name: winning_addr_strategy
+        description: "Ensemble strategy that scored highest for address similarity (e.g. ADDR_CMP, ADDR_JAC, ADDR_NRM)"
+      - name: strategies_used
+        description: "Array of all strategy codes evaluated by the ensemble UDF"
+      - name: ensemble_detail
+        description: "Full OBJECT returned by ENSEMBLE_MATCH_SCORE — all field scores, strategies, composite"
 
   - name: match_groups
     description: "Connected components — each source record assigned to a match_group_id (future master_payor_id)"

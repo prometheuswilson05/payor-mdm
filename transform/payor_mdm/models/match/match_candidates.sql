@@ -24,6 +24,12 @@ thresholded as (
         overall_score,
         match_rule,
 
+        -- Ensemble strategy metadata (passed through from int_match_scored)
+        winning_name_strategy,
+        winning_addr_strategy,
+        strategies_used,
+        ensemble_detail,
+
         -- Auto decision based on score + deterministic rules
         case
             when match_rule in ('DET-1','DET-2','DET-3') then 'auto_match'
