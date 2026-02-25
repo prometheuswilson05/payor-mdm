@@ -1,0 +1,177 @@
+[
+  {
+    "family_id": "uhg",
+    "parent": "UnitedHealth Group",
+    "tax_id": "412345678",
+    "state": "MN",
+    "city": "Minnetonka",
+    "entities": [
+      {"name": "UnitedHealthcare", "type": "commercial", "lob": "PPO", "state": "MN", "cms_plan_id": "H0028"},
+      {"name": "UnitedHealthcare of California", "type": "commercial", "lob": "HMO", "state": "CA", "tax_id": "953456789"},
+      {"name": "UnitedHealthcare of New York", "type": "commercial", "lob": "PPO", "state": "NY", "tax_id": "134567890"},
+      {"name": "UnitedHealthcare Community Plan", "type": "medicaid", "lob": "HMO", "state": "MN"},
+      {"name": "Optum", "type": "commercial", "lob": "PPO", "state": "MN", "tax_id": "275432198"},
+      {"name": "Oxford Health Plans", "type": "commercial", "lob": "HMO", "state": "NY", "tax_id": "061234567"}
+    ]
+  },
+  {
+    "family_id": "elevance",
+    "parent": "Elevance Health",
+    "tax_id": "352345678",
+    "state": "IN",
+    "city": "Indianapolis",
+    "entities": [
+      {"name": "Anthem Blue Cross Blue Shield of California", "type": "commercial", "lob": "PPO", "state": "CA", "tax_id": "952345671"},
+      {"name": "Anthem Blue Cross Blue Shield of Georgia", "type": "commercial", "lob": "PPO", "state": "GA", "tax_id": "582345671"},
+      {"name": "Empire BlueCross BlueShield", "type": "commercial", "lob": "HMO", "state": "NY", "tax_id": "133456789", "dba": "Empire HealthChoice HMO"}
+    ]
+  },
+  {
+    "family_id": "aetna",
+    "parent": "CVS Health",
+    "tax_id": "060443390",
+    "state": "CT",
+    "city": "Hartford",
+    "entities": [
+      {"name": "Aetna", "type": "commercial", "lob": "PPO", "state": "CT", "tax_id": "362488943", "cms_plan_id": "H5521"},
+      {"name": "Aetna Better Health", "type": "medicaid", "lob": "HMO", "state": "NJ", "tax_id": "223456789"},
+      {"name": "SilverScript", "type": "medicare_advantage", "lob": "PDP", "state": "CT", "tax_id": "362488944", "cms_plan_id": "S5601"}
+    ]
+  },
+  {
+    "family_id": "cigna",
+    "parent": "The Cigna Group",
+    "tax_id": "062241467",
+    "state": "CT",
+    "city": "Bloomfield",
+    "entities": [
+      {"name": "Cigna Healthcare", "type": "commercial", "lob": "PPO", "state": "CT", "tax_id": "062241468"},
+      {"name": "Evernorth Health Services", "type": "commercial", "lob": "PPO", "state": "MO", "tax_id": "431234567"},
+      {"name": "Express Scripts", "type": "commercial", "lob": "PBM", "state": "MO", "tax_id": "431234568"}
+    ]
+  },
+  {
+    "family_id": "humana",
+    "parent": "Humana Inc",
+    "tax_id": "611234567",
+    "state": "KY",
+    "city": "Louisville",
+    "entities": [
+      {"name": "Humana", "type": "medicare_advantage", "lob": "HMO", "state": "KY", "tax_id": "611234567", "cms_plan_id": "H1036"},
+      {"name": "Humana Gold Plus", "type": "medicare_advantage", "lob": "HMO", "state": "FL", "cms_plan_id": "H1036-001"},
+      {"name": "Humana Military", "type": "commercial", "lob": "PPO", "state": "VA", "tax_id": "541234567"}
+    ]
+  },
+  {
+    "family_id": "kaiser",
+    "parent": "Kaiser Permanente",
+    "tax_id": "941105628",
+    "state": "CA",
+    "city": "Oakland",
+    "entities": [
+      {"name": "Kaiser Foundation Health Plan", "type": "commercial", "lob": "HMO", "state": "CA", "tax_id": "941105628", "cms_plan_id": "H0524"},
+      {"name": "Kaiser Permanente of Northern California", "type": "commercial", "lob": "HMO", "state": "CA", "tax_id": "941105629"},
+      {"name": "Kaiser Permanente of Southern California", "type": "commercial", "lob": "HMO", "state": "CA", "tax_id": "941105630"}
+    ]
+  },
+  {
+    "family_id": "centene",
+    "parent": "Centene Corporation",
+    "tax_id": "421071543",
+    "state": "MO",
+    "city": "St. Louis",
+    "entities": [
+      {"name": "Centene", "type": "medicaid", "lob": "HMO", "state": "MO", "tax_id": "421071543"},
+      {"name": "Ambetter", "type": "exchange", "lob": "HMO", "state": "TX", "tax_id": "752345678"},
+      {"name": "WellCare Health Plans", "type": "medicare_advantage", "lob": "HMO", "state": "FL", "tax_id": "593456789", "cms_plan_id": "H1032"},
+      {"name": "Sunshine Health", "type": "medicaid", "lob": "HMO", "state": "FL", "tax_id": "593456790"}
+    ]
+  },
+  {
+    "family_id": "molina",
+    "parent": "Molina Healthcare",
+    "tax_id": "953456788",
+    "state": "CA",
+    "city": "Long Beach",
+    "entities": [
+      {"name": "Molina Healthcare", "type": "medicaid", "lob": "HMO", "state": "CA", "tax_id": "953456788"},
+      {"name": "Molina Healthcare of California", "type": "medicaid", "lob": "HMO", "state": "CA", "tax_id": "953456788"},
+      {"name": "Molina Healthcare of Ohio", "type": "medicaid", "lob": "HMO", "state": "OH", "tax_id": "311234567"}
+    ]
+  },
+  {
+    "family_id": "hcsc",
+    "parent": "Health Care Service Corporation",
+    "tax_id": "362544789",
+    "state": "IL",
+    "city": "Chicago",
+    "entities": [
+      {"name": "Blue Cross Blue Shield of Illinois", "type": "commercial", "lob": "PPO", "state": "IL", "tax_id": "362544789"},
+      {"name": "Blue Cross Blue Shield of Texas", "type": "commercial", "lob": "PPO", "state": "TX", "tax_id": "752345679"},
+      {"name": "Blue Cross Blue Shield of Montana", "type": "commercial", "lob": "PPO", "state": "MT", "tax_id": "811234567"}
+    ]
+  },
+  {
+    "family_id": "blues_ma",
+    "parent": null,
+    "entities": [
+      {"name": "Blue Cross Blue Shield of Massachusetts", "type": "commercial", "lob": "PPO", "state": "MA", "tax_id": "042345678", "city": "Boston"}
+    ]
+  },
+  {
+    "family_id": "highmark",
+    "parent": null,
+    "entities": [
+      {"name": "Highmark Blue Cross Blue Shield", "type": "commercial", "lob": "PPO", "state": "PA", "tax_id": "251234567", "city": "Pittsburgh"}
+    ]
+  },
+  {
+    "family_id": "carefirst",
+    "parent": null,
+    "entities": [
+      {"name": "CareFirst BlueCross BlueShield", "type": "commercial", "lob": "PPO", "state": "MD", "tax_id": "521234567", "city": "Baltimore"}
+    ]
+  },
+  {
+    "family_id": "premera",
+    "parent": null,
+    "entities": [
+      {"name": "Premera Blue Cross", "type": "commercial", "lob": "PPO", "state": "WA", "tax_id": "911234567", "city": "Mountlake Terrace"}
+    ]
+  },
+  {
+    "family_id": "oscar",
+    "parent": null,
+    "entities": [
+      {"name": "Oscar Health", "type": "exchange", "lob": "HMO", "state": "NY", "tax_id": "462345678", "city": "New York"}
+    ]
+  },
+  {
+    "family_id": "clover",
+    "parent": null,
+    "entities": [
+      {"name": "Clover Health", "type": "medicare_advantage", "lob": "PPO", "state": "NJ", "tax_id": "462345679", "city": "Franklin", "cms_plan_id": "H5141"}
+    ]
+  },
+  {
+    "family_id": "bright",
+    "parent": null,
+    "entities": [
+      {"name": "Bright Health", "type": "exchange", "lob": "HMO", "state": "MN", "tax_id": "812345678", "city": "Minneapolis"}
+    ]
+  },
+  {
+    "family_id": "devoted",
+    "parent": null,
+    "entities": [
+      {"name": "Devoted Health", "type": "medicare_advantage", "lob": "HMO", "state": "FL", "tax_id": "832345678", "city": "Waltham", "cms_plan_id": "H8230"}
+    ]
+  },
+  {
+    "family_id": "friday",
+    "parent": null,
+    "entities": [
+      {"name": "Friday Health Plans", "type": "exchange", "lob": "PPO", "state": "CO", "tax_id": "842345678", "city": "Alamosa"}
+    ]
+  }
+]

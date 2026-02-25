@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.env
+
+# Generator output (CSV files — generated, not source-controlled)
+generator/output/*.csv
+
+# Node / React
+node_modules/
+app/dist/
+app/.env.local
+
+# dbt
+transform/**/.env
+transform/**/target/
+transform/**/dbt_packages/
+transform/**/.user.yml
+transform/**/logs/
+
+# Snowflake credentials
+*.toml
+*.p8
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
