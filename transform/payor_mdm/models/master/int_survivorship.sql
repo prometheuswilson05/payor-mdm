@@ -112,7 +112,7 @@ most_complete_raw as (
 
     select
         match_group_id,
-        max(payor_name_alt) as payor_name_alt
+        max_by(payor_name_alt, length(payor_name_alt)) as payor_name_alt
 
     from group_members
     where payor_name_alt is not null and trim(payor_name_alt) != ''
